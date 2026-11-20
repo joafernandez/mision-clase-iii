@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Misión Clase III</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;900&family=Bungee&display=swap" rel="stylesheet">
+<style>
+/* Layout: HUD fijo arriba · mapa de sucursales + tarjetas de sucursal (lado a lado en escritorio, apiladas en celular) */
+:root{
+  --bg:#071a2b; --panel:#10263d; --panel2:#18324d; --line:#26476a;
+  --fg:#eef4fb; --muted:#93a8c0; --amber:#ffb000; --amber-d:#b97800;
+  --blue:#0a7fb8; --green:#0b9358; --red:#ff4d5e; --land:#3f8a46; --land2:#2f6d37;
+  --display:'Bungee','Rubik',system-ui,sans-serif; --body:'Rubik',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+[hidden]{display:none!important}
+body{background:radial-gradient(120% 80% at 50% 0%,#0d2c47 0%,var(--bg) 60%);color:var(--fg);font-family:var(--body);overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none}
+button{font-family:var(--body);cursor:pointer;border:0;color:inherit}
+button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+#app{height:100%;display:flex;flex-direction:column}
+.hud{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:#04111d;border-bottom:2px solid var(--amber)}
+#money{font:900 clamp(20px,5vw,28px)/1 var(--body);color:var(--amber);font-variant-numeric:tabular-nums;min-width:110px;transition:color .2s}
+#money.down{color:var(--red)}
+.brand{font:400 clamp(14px,3.6vw,18px)/1 var(--display);color:var(--amber);text-shadow:0 2px 0 var(--amber-d)}
+.hud .right{display:flex;align-items:center;gap:8px;min-width:110px;justify-content:flex-end}
+#timer{font:900 clamp(18px,4.6vw,24px)/1 var(--body);font-variant-numeric:tabular-nums}
+#timer.hurry{color:var(--red);animation:pulse .5s infinite alternate}
+.iconbtn{width:42px;height:42px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-weight:900;font-size:18px}
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.mapwrap{min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+#map{width:100%;height:100%;max-height:100%;touch-action:manipulation}
+#cards{min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:9px;transition:border-color .2s,box-shadow .2s}
+.card.alert{border-color:var(--red);box-shadow:0 0 0 1px var(--red) inset}
+.card .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h3{margin:0;font:700 17px/1.1 var(--body);display:flex;align-items:center;gap:6px}
+.card .meta{font:700 14px/1 var(--body);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.card .meta b{color:var(--fg)}
+.bar{height:12px;border-radius:99px;background:#06121f;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;transition:width .25s linear}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.act{padding:14px 6px;border-radius:12px;font:700 15px/1.1 var(--body);box-shadow:0 4px 0 rgba(0,0,0,.35);transition:transform .08s,filter .2s}
+.act:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.act small{display:block;font-weight:500;font-size:11.5px;opacity:.85;margin-top:3px}
+.act.granel{background:var(--blue)} .act.tarjeta{background:var(--green)}
+.act:disabled{filter:grayscale(.8) brightness(.6);cursor:not-allowed}
+.card.empty{border-color:var(--red);animation:emptyFlash .55s infinite alternate}
+@keyframes emptyFlash{from{background:var(--panel)}to{background:#5c1422}}
+.emptytag{background:var(--red);color:#fff;border-radius:10px;padding:8px 10px;font:900 14px/1.15 var(--body);text-align:center;letter-spacing:.02em}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:15;box-shadow:inset 0 0 0 4px var(--red),inset 0 0 70px rgba(255,45,67,.55);animation:pulse .5s infinite alternate}
+#money.down{animation:pulse .4s infinite alternate}
+.status{font-size:12.5px;color:var(--muted);min-height:15px}
+.status.bad{color:var(--red);font-weight:700}
+/* mapa */
+.road{stroke:#2a3138;stroke-width:9;stroke-linecap:round;fill:none}
+.road-dash{stroke:#e9d27a;stroke-width:1.4;stroke-dasharray:5 7;fill:none;opacity:.7}
+.lbl{font:700 11px var(--body);fill:#fff;paint-order:stroke;stroke:#0b2216;stroke-width:3px}
+.thief{cursor:pointer}
+.thief .pulse{animation:thiefPulse .6s infinite alternate;transform-box:fill-box;transform-origin:center}
+.float{font:900 14px var(--body);paint-order:stroke;stroke:#000;stroke-width:3px;animation:floatUp 1.3s ease-out forwards}
+@keyframes floatUp{to{transform:translateY(-34px);opacity:0}}
+@keyframes thiefPulse{from{opacity:.35}to{opacity:.9}}
+@keyframes pulse{from{opacity:1}to{opacity:.55}}
+/* pantallas */
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(3,12,22,.78);backdrop-filter:blur(3px);z-index:20;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px}
+.modal{width:min(440px,100%);max-height:100%;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:26px 24px;display:flex;flex-direction:column;gap:14px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal h1,.modal h2{margin:0;font:400 clamp(26px,7vw,36px)/1.05 var(--display);color:var(--amber);text-shadow:0 3px 0 var(--amber-d);text-wrap:balance}
+.modal h2{font-size:clamp(24px,6vw,30px)}
+.modal p{margin:0;line-height:1.45}
+.sub{color:var(--muted)}
+.howto{text-align:left;display:flex;flex-direction:column;gap:12px;font-size:15.5px;line-height:1.4}
+.big{padding:16px;border-radius:14px;background:var(--amber);color:#1a1200;font:900 18px/1 var(--body);letter-spacing:.04em;box-shadow:0 5px 0 var(--amber-d)}
+.big:active{transform:translateY(3px);box-shadow:0 2px 0 var(--amber-d)}
+.ghost{padding:14px;border-radius:14px;background:var(--panel2);font:700 15px/1 var(--body)}
+.siu{background:var(--panel2);border-radius:14px;padding:14px;font-size:15px;line-height:1.45}
+.siu b{color:var(--amber)}
+.siu{display:flex;flex-direction:column;gap:10px;align-items:center}
+.cta1{font:400 22px/1.1 var(--display);color:var(--red)}
+.cta2{font:900 19px/1.2 var(--body);color:var(--fg)}
+.wa{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px 14px;border-radius:14px;background:#25d366;color:#04210f;text-decoration:none;font:900 16px/1.15 var(--body);box-shadow:0 4px 0 #128c4a;text-align:left}
+.wa svg path{fill:#04210f}
+.wa small{display:block;font:700 14px/1.2 var(--body);opacity:.85;font-variant-numeric:tabular-nums}
+.result{font:900 44px/1 var(--body);color:var(--amber);font-variant-numeric:tabular-nums}
+.stars{font-size:38px;letter-spacing:4px}
+.statgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;text-align:left}
+.statgrid div{background:var(--panel2);border-radius:12px;padding:10px 12px;font-size:12.5px;color:var(--muted)}
+.statgrid b{display:block;color:var(--fg);font-size:18px;font-variant-numeric:tabular-nums}
+.hint{font-size:12.5px;color:var(--muted)}
+@media (max-width:760px){
+  main{grid-template-columns:1fr;grid-template-rows:minmax(0,40%) minmax(0,1fr);gap:10px;padding-block:10px}
+  .card{padding:10px 12px;gap:7px}
+  .act{padding:12px 4px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header class="hud">
+    <div id="money">$3.000</div>
+    <div class="brand">CLASE III</div>
+    <div class="right">
+      <span id="timer">⏱ 90s</span>
+      <button class="iconbtn" id="snd" aria-label="Sonido">🔊</button>
+      <button class="iconbtn" id="help" aria-label="Cómo jugar">?</button>
+    </div>
+  </header>
+  <main>
+    <section class="mapwrap"><svg id="map" viewBox="70 120 300 230" aria-label="Mapa de sucursales"></svg></section>
+    <section id="cards"></section>
+  </main>
+</div>
+
+<div id="vignette" hidden></div>
+
+<div id="scrStart" class="overlay">
+  <div class="modal">
+    <div class="stars">⛽🚛</div>
+    <h1>MISIÓN CLASE III</h1>
+    <p class="sub">¿Podés controlar el combustible de toda tu empresa?</p>
+    <p>Tenés <b>90 segundos</b> y 3 sucursales. Mantenelas con combustible y atrapá a los ladrones.</p>
+    <button class="big" id="btnPlay">JUGAR AHORA</button>
+    <button class="ghost" id="btnHow1">Cómo jugar</button>
+  </div>
+</div>
+
+<div id="scrHelp" class="overlay" hidden>
+  <div class="modal">
+    <h2>Cómo jugar</h2>
+    <div class="howto">
+      <div>⛽ Las sucursales gastan combustible todo el tiempo. Con combustible <b>ganan plata</b>; vacías, <b>pierden plata</b>.</div>
+      <div>🚛 <b>Granel ($600)</b>: sale un camión cisterna de la refinería al depósito. Tarda unos segundos, pero carga mucho (+60%).</div>
+      <div>💳 <b>Tarjeta ($450)</b>: carga directa en la estación. Es al instante, pero poquito (+20%).</div>
+      <div>🦹 ¡Tocá al ladrón antes de que se lleve el combustible!</div>
+      <div>⏱ Aguantá 90 segundos con la mayor ganancia.</div>
+    </div>
+    <p class="hint">El juego se pausa mientras leés esto.</p>
+    <button class="big" id="btnBack">Volver</button>
+  </div>
+</div>
+
+<div id="scrEnd" class="overlay" hidden>
+  <div class="modal">
+    <div class="stars" id="endStars">⭐</div>
+    <h2 id="endTitle">¡Buena gestión!</h2>
+    <div class="result" id="endMoney">$0</div>
+    <div class="statgrid">
+      <div>Ladrones atrapados<b id="stCaught">0</b></div>
+      <div>Robos sufridos<b id="stRobbed">0</b></div>
+      <div>Cargas a granel<b id="stGranel">0</b></div>
+      <div>Cargas con tarjeta<b id="stCard">0</b></div>
+    </div>
+    <div class="siu">
+      <div class="cta1">¡Evitá pérdidas!</div>
+      Con <b>SIU-CLIII</b> controlás el granel y las tarjetas de todas tus sucursales en un solo lugar y detectás las irregularidades al instante.
+      <div class="cta2">¡Coordinemos una reunión!</div>
+      <a class="wa" href="https://wa.me/5491100000000" target="_blank" rel="noopener">
+        <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path fill="#fff" d="M16 3a13 13 0 0 0-11.2 19.6L3 29l6.6-1.7A13 13 0 1 0 16 3zm0 23.7c-2 0-4-.5-5.7-1.6l-.4-.2-3.9 1 1-3.8-.3-.4A10.7 10.7 0 1 1 16 26.7zm5.9-8c-.3-.2-1.9-1-2.2-1s-.5-.2-.7.2l-1 1.2c-.2.2-.4.2-.7.1a8.8 8.8 0 0 1-4.4-3.8c-.3-.6.3-.5 1-1.7.1-.2 0-.4 0-.6l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6a1.2 1.2 0 0 0-.9.4 3.7 3.7 0 0 0-1.1 2.7 6.5 6.5 0 0 0 1.3 3.4 14.6 14.6 0 0 0 5.6 5c2.1.9 2.9 1 4 .8.6-.1 1.9-.8 2.2-1.5s.3-1.4.2-1.5-.3-.2-.6-.4z"/></svg>
+        <span>Contactame por WhatsApp<small>+54 9 11 0000-0000</small></span>
+      </a>
+    </div>
+    <button class="big" id="btnAgain">JUGAR DE NUEVO</button>
+    <button class="ghost" id="btnHow2">Cómo jugar</button>
+  </div>
+</div>
+
+<script>
+(() => {
+const CFG = { time: 90, money: 3000, income: 45, emptyLoss: 70,
+  granelCost: 600, granelAdd: 60, granelTime: 4,
+  cardCost: 450, cardAdd: 20,
+  thiefGap: [1.8, 3.2], thiefTime: 2.8, thiefSteal: 30, thiefMoney: 250, catchReward: 200 };
+
+const P = (lon, lat) => [(lon + 74) * 20, (-lat - 21) * 17];
+const BR = [
+  { id: 'mza', name: 'Mendoza', ll: [-68.8, -32.9], start: 45, drain: 1.3 },
+  { id: 'cba', name: 'Córdoba', ll: [-64.2, -31.4], start: 35, drain: 1.7 },
+  { id: 'ba',  name: 'Buenos Aires', ll: [-58.4, -34.6], start: 50, drain: 2.2 },
+];
+const SUP = P(-62.3, -37.6);
+const ARG = [[-65.7,-22.1],[-64.3,-22.8],[-62.8,-22.0],[-61.0,-23.8],[-58.0,-25.3],[-54.6,-25.6],[-53.8,-27.1],[-55.7,-28.0],[-57.6,-30.2],[-58.2,-32.4],[-58.4,-34.0],[-57.3,-35.2],[-56.7,-36.4],[-57.7,-38.2],[-62.3,-38.8],[-62.1,-40.6],[-65.0,-41.0],[-63.8,-42.1],[-65.0,-42.8],[-65.3,-44.5],[-67.3,-45.6],[-66.0,-47.0],[-68.5,-50.1],[-69.0,-51.6],[-68.4,-52.3],[-71.9,-52.0],[-72.3,-51.0],[-73.2,-49.5],[-72.4,-48.0],[-71.6,-46.5],[-71.7,-44.0],[-71.4,-42.0],[-71.9,-40.0],[-71.1,-37.0],[-70.5,-35.0],[-69.9,-33.0],[-70.0,-30.0],[-69.0,-28.0],[-68.3,-26.0],[-67.2,-24.0],[-66.3,-22.0]];
+
+const $ = (id) => document.getElementById(id);
+const svg = $('map'); const NS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs = {}, parent = svg) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+const fmt = (n) => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('es-AR');
+
+/* ---------- sonido (sólo tras interacción) ---------- */
+let actx = null, soundOn = true;
+function tone(f, d = 0.12, type = 'square', vol = 0.06, slide = 0) {
+  if (!soundOn) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime;
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.linearRampToValueAtTime(f + slide, t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + 0.02);
+  } catch (e) {}
+}
+const sfx = {
+  cash: () => { tone(880, .08); setTimeout(() => tone(1320, .12), 70); },
+  pour: () => tone(300, .35, 'sawtooth', .03, 300),
+  catch: () => { tone(660, .07); setTimeout(() => tone(990, .07), 60); setTimeout(() => tone(1480, .14), 120); },
+  rob: () => tone(220, .45, 'sawtooth', .07, -120),
+  thief: () => tone(520, .1, 'triangle', .05),
+  arrive: () => tone(440, .2, 'triangle', .06, 220),
+  alarm: () => [0, 180, 360].forEach((d, i) => setTimeout(() => tone(i % 2 ? 620 : 880, .16, 'square', .07), d)),
+  end: () => [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, .18, 'triangle', .07), i * 120)),
+};
+
+/* ---------- mapa ---------- */
+const defs = el('defs');
+defs.innerHTML = `<radialGradient id="sea" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#0f3a5c"/><stop offset="1" stop-color="#082236"/></radialGradient>
+<filter id="glow"><feGaussianBlur stdDeviation="3"/></filter>`;
+el('rect', { x: 0, y: 0, width: 440, height: 620, fill: 'url(#sea)' });
+for (let x = 0; x < 440; x += 20) el('line', { x1: x, y1: 0, x2: x, y2: 620, stroke: '#ffffff', 'stroke-opacity': .04 });
+for (let y = 0; y < 620; y += 20) el('line', { x1: 0, y1: y, x2: 440, y2: y, stroke: '#ffffff', 'stroke-opacity': .04 });
+const argPts = ARG.map(p => P(...p).join(',')).join(' ');
+el('polygon', { points: argPts, fill: '#1e4f2a', filter: 'url(#glow)', opacity: .8 });
+el('polygon', { points: argPts, fill: 'var(--land)', stroke: '#8fd18f', 'stroke-width': 1.2, 'stroke-linejoin': 'round' });
+el('polygon', { points: [[-68.6,-52.6],[-65.1,-54.7],[-68.6,-54.9]].map(p => P(...p).join(',')).join(' '), fill: 'var(--land)' });
+// textura de campos
+for (let i = 0; i < 70; i++) { const x = 95 + Math.random() * 230, y = 130 + Math.random() * 210; el('rect', { x, y, width: 6 + Math.random() * 10, height: 4 + Math.random() * 6, fill: 'var(--land2)', opacity: .35, transform: `rotate(${Math.random() * 40 - 20} ${x} ${y})` }); }
+
+const gRoads = el('g'), gNodes = el('g'), gTrucks = el('g'), gThieves = el('g'), gFx = el('g');
+BR.forEach(b => {
+  b.xy = P(...b.ll);
+  const mx = (SUP[0] + b.xy[0]) / 2 + (b.id === 'cba' ? -18 : 10), my = (SUP[1] + b.xy[1]) / 2;
+  b.ctrl = [mx, my];
+  const d = `M${SUP[0]},${SUP[1]} Q${mx},${my} ${b.xy[0]},${b.xy[1]}`;
+  el('path', { d, class: 'road' }, gRoads); el('path', { d, class: 'road-dash' }, gRoads);
+});
+// refinería
+const sup = el('g', { transform: `translate(${SUP[0]},${SUP[1]})` }, gNodes);
+el('rect', { x: -15, y: -12, width: 30, height: 18, rx: 4, fill: '#0b1b2b', stroke: '#ffb000', 'stroke-width': 1.5 }, sup);
+el('text', { y: 2, 'text-anchor': 'middle', 'font-size': 14 }, sup).textContent = '🏭';
+el('text', { y: 20, 'text-anchor': 'middle', class: 'lbl' }, sup).textContent = 'Refinería';
+// sucursales
+BR.forEach(b => {
+  const g = el('g', { transform: `translate(${b.xy[0]},${b.xy[1]})` }, gNodes);
+  b.halo = el('circle', { r: 20, fill: 'var(--red)', opacity: 0 }, g);
+  el('circle', { r: 15, fill: '#0b1b2b', stroke: '#26476a', 'stroke-width': 4 }, g);
+  b.ring = el('circle', { r: 15, fill: 'none', stroke: '#ffb000', 'stroke-width': 4, 'stroke-linecap': 'round', transform: 'rotate(-90)', 'stroke-dasharray': '94.2 94.2' }, g);
+  el('text', { y: 5, 'text-anchor': 'middle', 'font-size': 15 }, g).textContent = '🏢';
+  el('text', { y: b.id === 'mza' ? 30 : -21, 'text-anchor': 'middle', class: 'lbl' }, g).textContent = b.name;
+  b.emptyLbl = el('g', { opacity: 0, transform: `translate(0,${b.id === 'mza' ? -30 : 32})` }, g);
+  el('rect', { x: -42, y: -9, width: 84, height: 16, rx: 5, fill: '#ff2d43' }, b.emptyLbl);
+  el('text', { y: 3, 'text-anchor': 'middle', fill: '#fff', 'font-size': 9.5, 'font-weight': 900 }, b.emptyLbl).textContent = '⛽ SIN COMBUSTIBLE';
+});
+
+function bez(b, t) { const [x0, y0] = SUP, [cx, cy] = b.ctrl, [x1, y1] = b.xy, u = 1 - t; return [u*u*x0 + 2*u*t*cx + t*t*x1, u*u*y0 + 2*u*t*cy + t*t*y1]; }
+function floatText(x, y, txt, color) {
+  const t = el('text', { x, y, 'text-anchor': 'middle', class: 'float', fill: color }, gFx); t.textContent = txt;
+  setTimeout(() => t.remove(), 1300);
+}
+
+/* ---------- tarjetas ---------- */
+const cards = $('cards');
+BR.forEach(b => {
+  const c = document.createElement('div'); c.className = 'card';
+  c.innerHTML = `<div class="top"><h3>${b.name} <span class="ic"></span></h3><span class="meta"><span class="tk"></span> <b class="pc">0%</b></span></div>
+  <div class="bar"><i></i></div>
+  <div class="emptytag" hidden>⛽ ¡SIN COMBUSTIBLE! Perdés $${CFG.emptyLoss} por segundo</div>
+  <div class="btns"><button class="act granel">🚛 Granel $${CFG.granelCost}<small>+${CFG.granelAdd}% · tarda</small></button>
+  <button class="act tarjeta">💳 Tarjeta $${CFG.cardCost}<small>+${CFG.cardAdd}% · al instante</small></button></div>
+  <div class="status"></div>`;
+  cards.appendChild(c);
+  b.card = c; b.ic = c.querySelector('.ic'); b.pc = c.querySelector('.pc'); b.tk = c.querySelector('.tk');
+  b.barEl = c.querySelector('.bar i'); b.st = c.querySelector('.status'); b.tag = c.querySelector('.emptytag');
+  b.bG = c.querySelector('.granel'); b.bT = c.querySelector('.tarjeta');
+  b.bG.onclick = () => granel(b); b.bT.onclick = () => tarjeta(b);
+});
+
+/* ---------- estado ---------- */
+let S = null, running = false, paused = false, last = 0;
+function reset() {
+  S = { t: CFG.time, money: CFG.money, caught: 0, robbed: 0, nGranel: 0, nCard: 0, nextThief: 3 };
+  BR.forEach(b => { b.fuel = b.start; b.truck = null; b.thief = null; b.lastMoney = 0; });
+  gTrucks.innerHTML = ''; gThieves.innerHTML = ''; gFx.innerHTML = '';
+}
+
+function granel(b) {
+  if (!running || paused || b.truck || S.money < CFG.granelCost) return;
+  S.money -= CFG.granelCost; S.nGranel++;
+  const g = el('g', {}, gTrucks);
+  el('circle', { r: 9, fill: '#0a7fb8', opacity: .35 }, g);
+  el('text', { y: 4, 'text-anchor': 'middle', 'font-size': 14 }, g).textContent = '🚛';
+  b.truck = { t: 0, g };
+  floatText(SUP[0], SUP[1] - 16, '-$' + CFG.granelCost, '#ff8a95'); sfx.cash();
+}
+function tarjeta(b) {
+  if (!running || paused || S.money < CFG.cardCost) return;
+  S.money -= CFG.cardCost; S.nCard++;
+  b.fuel = Math.min(100, b.fuel + CFG.cardAdd);
+  floatText(b.xy[0], b.xy[1] - 24, '💳 +' + CFG.cardAdd + '%', '#5ef0a4'); sfx.pour();
+}
+function spawnThief() {
+  const free = BR.filter(b => !b.thief && b.fuel > 5);
+  if (!free.length) return;
+  const b = free[Math.floor(Math.random() * free.length)];
+  const ang = Math.random() * Math.PI * 2, x = b.xy[0] + Math.cos(ang) * 26, y = b.xy[1] + Math.sin(ang) * 20;
+  const g = el('g', { class: 'thief', transform: `translate(${x},${y})` }, gThieves);
+  el('circle', { r: 17, fill: '#ff4d5e', class: 'pulse' }, g);
+  const timer = el('circle', { r: 14, fill: 'none', stroke: '#fff', 'stroke-width': 2.5, transform: 'rotate(-90)', 'stroke-dasharray': '88 88' }, g);
+  el('text', { y: 6, 'text-anchor': 'middle', 'font-size': 18 }, g).textContent = '🦹';
+  el('circle', { r: 19, fill: 'transparent' }, g); // área táctil
+  const spd = (Math.random() < .5 ? -1 : 1) * (2.2 + Math.random() * 1.3) * (1 + (CFG.time - S.t) / CFG.time);
+  b.thief = { t: 0, g, x, y, timer, ang, spd };
+  const hit = (e) => { e.preventDefault(); catchThief(b); };
+  g.addEventListener('pointerdown', hit);
+  sfx.thief();
+}
+function catchThief(b) {
+  if (!b.thief || paused || !running) return;
+  S.caught++; S.money += CFG.catchReward;
+  floatText(b.thief.x, b.thief.y - 14, '¡Atrapado! +$' + CFG.catchReward, '#ffd25e');
+  b.thief.g.remove(); b.thief = null; sfx.catch();
+}
+
+/* ---------- bucle ---------- */
+function step(dt) {
+  S.t -= dt;
+  S.nextThief -= dt;
+  if (S.nextThief <= 0) { spawnThief(); if (S.t < 50 && Math.random() < 0.5) spawnThief(); S.nextThief = CFG.thiefGap[0] + Math.random() * (CFG.thiefGap[1] - CFG.thiefGap[0]); }
+  BR.forEach(b => {
+    b.fuel = Math.max(0, b.fuel - b.drain * dt);
+    if (b.fuel <= 0 && !b.wasEmpty) { sfx.alarm(); floatText(b.xy[0], b.xy[1] - 30, '⛽ ¡VACÍA!', '#ff6b78'); }
+    b.wasEmpty = b.fuel <= 0;
+    S.money += (b.fuel > 0 ? CFG.income : -CFG.emptyLoss) * dt;
+    if (b.truck) {
+      b.truck.t += dt / CFG.granelTime;
+      const [x, y] = bez(b, Math.min(1, b.truck.t));
+      b.truck.g.setAttribute('transform', `translate(${x},${y})`);
+      if (b.truck.t >= 1) {
+        b.fuel = Math.min(100, b.fuel + CFG.granelAdd); b.truck.g.remove(); b.truck = null;
+        floatText(b.xy[0], b.xy[1] - 24, '🚛 +' + CFG.granelAdd + '%', '#7cc8ff'); sfx.arrive();
+      }
+    }
+    if (b.thief) {
+      const th = b.thief;
+      th.t += dt;
+      // el ladrón se mueve alrededor de la sucursal, cambia de sentido y de distancia
+      if (Math.random() < dt * 0.9) th.spd *= -1;
+      th.ang += th.spd * dt;
+      const rr = 27 + 11 * Math.sin(th.t * 3.3);
+      th.x = b.xy[0] + Math.cos(th.ang) * rr * 1.15;
+      th.y = b.xy[1] + Math.sin(th.ang) * rr * 0.9;
+      th.g.setAttribute('transform', `translate(${th.x},${th.y})`);
+      const left = Math.max(0, 1 - b.thief.t / CFG.thiefTime);
+      b.thief.timer.setAttribute('stroke-dasharray', `${88 * left} 88`);
+      if (b.thief.t >= CFG.thiefTime) {
+        b.fuel = Math.max(0, b.fuel - CFG.thiefSteal); S.money -= CFG.thiefMoney; S.robbed++;
+        floatText(b.thief.x, b.thief.y - 14, 'ROBO -' + CFG.thiefSteal + '%', '#ff6b78');
+        b.thief.g.remove(); b.thief = null; sfx.rob();
+      }
+    }
+  });
+  if (S.t <= 0 || S.money <= 0) end();
+}
+
+function render() {
+  const m = $('money'); m.textContent = fmt(Math.max(0, S.money));
+  const anyEmpty = BR.some(b => b.fuel <= 0);
+  m.classList.toggle('down', anyEmpty);
+  $('vignette').hidden = !anyEmpty;
+  const tt = $('timer'); tt.textContent = '⏱ ' + Math.max(0, Math.ceil(S.t)) + 's'; tt.classList.toggle('hurry', S.t <= 10);
+  BR.forEach(b => {
+    const f = b.fuel, low = f < 20, color = f < 20 ? '#ff4d5e' : f < 45 ? '#ffb000' : '#3ddc84';
+    b.barEl.style.width = f + '%';
+    b.barEl.style.background = `linear-gradient(90deg,#c0392b,${color})`;
+    b.pc.textContent = Math.round(f) + '%';
+    b.tk.textContent = b.truck ? '🚛 en camino ·' : '';
+    b.ic.textContent = b.thief ? '🦹' : low ? '🚨' : '';
+    b.card.classList.toggle('alert', low || !!b.thief);
+    b.card.classList.toggle('empty', f <= 0);
+    b.tag.hidden = f > 0;
+    b.emptyLbl.setAttribute('opacity', f <= 0 ? (Math.sin(performance.now() / 120) > -0.3 ? 1 : 0.25) : 0);
+    b.st.textContent = b.thief ? '¡Hay un ladrón! Tocalo en el mapa' : f <= 0 ? 'Sin combustible: perdiendo plata' : low ? 'Combustible bajo' : '';
+    b.st.classList.toggle('bad', !!b.thief || f <= 0);
+    b.bG.disabled = !running || !!b.truck || S.money < CFG.granelCost;
+    b.bT.disabled = !running || S.money < CFG.cardCost || f >= 100;
+    b.ring.setAttribute('stroke-dasharray', `${94.2 * f / 100} 94.2`);
+    b.ring.setAttribute('stroke', color);
+    b.halo.setAttribute('opacity', low || b.thief ? (0.25 + 0.2 * Math.sin(performance.now() / 150)) : 0);
+  });
+}
+
+function loop(ts) {
+  if (!running) return;
+  const dt = Math.min(0.1, (ts - last) / 1000); last = ts;
+  if (!paused) step(dt);
+  if (running) render();
+  requestAnimationFrame(loop);
+}
+
+function start() {
+  reset(); running = true; paused = false;
+  $('scrStart').hidden = true; $('scrEnd').hidden = true;
+  last = performance.now(); requestAnimationFrame(loop);
+}
+function end() {
+  running = false; render();
+  const money = Math.max(0, Math.round(S.money));
+  let title, stars;
+  if (money <= 0) { title = '¡Quiebra!'; stars = '💸'; }
+  else if (money >= 7000) { title = '¡Gerente estrella!'; stars = '⭐⭐⭐'; }
+  else if (money >= 4500) { title = '¡Buena gestión!'; stars = '⭐⭐'; }
+  else { title = 'Gestión ajustada'; stars = '⭐'; }
+  $('endTitle').textContent = title; $('endStars').textContent = stars; $('endMoney').textContent = fmt(money);
+  $('stCaught').textContent = S.caught; $('stRobbed').textContent = S.robbed;
+  $('stGranel').textContent = S.nGranel; $('stCard').textContent = S.nCard;
+  $('scrEnd').hidden = false; sfx.end();
+}
+
+function openHelp() { paused = true; $('scrHelp').hidden = false; }
+$('help').onclick = openHelp; $('btnHow1').onclick = openHelp; $('btnHow2').onclick = openHelp;
+$('btnBack').onclick = () => { $('scrHelp').hidden = true; paused = false; last = performance.now(); };
+$('btnPlay').onclick = () => { tone(1, .01, 'sine', 0.0001); start(); };
+$('btnAgain').onclick = start;
+$('snd').onclick = () => { soundOn = !soundOn; $('snd').textContent = soundOn ? '🔊' : '🔇'; };
+
+reset(); render();
+})();
+</script>
+</body>
+</html>
