@@ -106,7 +106,7 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.1fr) minm
     <div id="money">$3.000</div>
     <div class="brand">CLASE III</div>
     <div class="right">
-      <span id="timer">⏱ 90s</span>
+      <span id="timer">⏱ 30s</span>
       <button class="iconbtn" id="snd" aria-label="Sonido">🔊</button>
       <button class="iconbtn" id="help" aria-label="Cómo jugar">?</button>
     </div>
@@ -124,7 +124,7 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.1fr) minm
     <div class="stars">⛽🚛</div>
     <h1>MISIÓN CLASE III</h1>
     <p class="sub">¿Podés controlar el combustible de toda tu empresa?</p>
-    <p>Tenés <b>90 segundos</b> y 3 sucursales. Mantenelas con combustible y atrapá a los ladrones.</p>
+    <p>Tenés <b>30 segundos</b> y 3 sucursales. Mantenelas con combustible y atrapá a los ladrones.</p>
     <button class="big" id="btnPlay">JUGAR AHORA</button>
     <button class="ghost" id="btnHow1">Cómo jugar</button>
   </div>
@@ -138,7 +138,7 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.1fr) minm
       <div>🚛 <b>Granel ($600)</b>: sale un camión cisterna de la refinería al depósito. Tarda unos segundos, pero carga mucho (+60%).</div>
       <div>💳 <b>Tarjeta ($450)</b>: carga directa en la estación. Es al instante, pero poquito (+20%).</div>
       <div>🦹 ¡Tocá al ladrón antes de que se lleve el combustible!</div>
-      <div>⏱ Aguantá 90 segundos con la mayor ganancia.</div>
+      <div>⏱ Aguantá 30 segundos con la mayor ganancia.</div>
     </div>
     <p class="hint">El juego se pausa mientras leés esto.</p>
     <button class="big" id="btnBack">Volver</button>
@@ -172,16 +172,16 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.1fr) minm
 
 <script>
 (() => {
-const CFG = { time: 90, money: 3000, income: 45, emptyLoss: 70,
-  granelCost: 600, granelAdd: 60, granelTime: 4,
+const CFG = { time: 30, money: 3000, income: 45, emptyLoss: 70,
+  granelCost: 600, granelAdd: 60, granelTime: 3,
   cardCost: 450, cardAdd: 20,
-  thiefGap: [1.8, 3.2], thiefTime: 2.8, thiefSteal: 30, thiefMoney: 250, catchReward: 200 };
+  thiefGap: [1.5, 2.6], thiefTime: 2.8, thiefSteal: 30, thiefMoney: 250, catchReward: 200 };
 
 const P = (lon, lat) => [(lon + 74) * 20, (-lat - 21) * 17];
 const BR = [
-  { id: 'mza', name: 'Mendoza', ll: [-68.8, -32.9], start: 45, drain: 1.3 },
-  { id: 'cba', name: 'Córdoba', ll: [-64.2, -31.4], start: 35, drain: 1.7 },
-  { id: 'ba',  name: 'Buenos Aires', ll: [-58.4, -34.6], start: 50, drain: 2.2 },
+  { id: 'mza', name: 'Mendoza', ll: [-68.8, -32.9], start: 45, drain: 2.6 },
+  { id: 'cba', name: 'Córdoba', ll: [-64.2, -31.4], start: 35, drain: 3.4 },
+  { id: 'ba',  name: 'Buenos Aires', ll: [-58.4, -34.6], start: 50, drain: 4.2 },
 ];
 const SUP = P(-62.3, -37.6);
 const ARG = [[-65.7,-22.1],[-64.3,-22.8],[-62.8,-22.0],[-61.0,-23.8],[-58.0,-25.3],[-54.6,-25.6],[-53.8,-27.1],[-55.7,-28.0],[-57.6,-30.2],[-58.2,-32.4],[-58.4,-34.0],[-57.3,-35.2],[-56.7,-36.4],[-57.7,-38.2],[-62.3,-38.8],[-62.1,-40.6],[-65.0,-41.0],[-63.8,-42.1],[-65.0,-42.8],[-65.3,-44.5],[-67.3,-45.6],[-66.0,-47.0],[-68.5,-50.1],[-69.0,-51.6],[-68.4,-52.3],[-71.9,-52.0],[-72.3,-51.0],[-73.2,-49.5],[-72.4,-48.0],[-71.6,-46.5],[-71.7,-44.0],[-71.4,-42.0],[-71.9,-40.0],[-71.1,-37.0],[-70.5,-35.0],[-69.9,-33.0],[-70.0,-30.0],[-69.0,-28.0],[-68.3,-26.0],[-67.2,-24.0],[-66.3,-22.0]];
@@ -280,7 +280,7 @@ BR.forEach(b => {
 /* ---------- estado ---------- */
 let S = null, running = false, paused = false, last = 0;
 function reset() {
-  S = { t: CFG.time, money: CFG.money, caught: 0, robbed: 0, nGranel: 0, nCard: 0, nextThief: 3 };
+  S = { t: CFG.time, money: CFG.money, caught: 0, robbed: 0, nGranel: 0, nCard: 0, nextThief: 1.5 };
   BR.forEach(b => { b.fuel = b.start; b.truck = null; b.thief = null; b.lastMoney = 0; });
   gTrucks.innerHTML = ''; gThieves.innerHTML = ''; gFx.innerHTML = '';
 }
@@ -327,7 +327,7 @@ function catchThief(b) {
 function step(dt) {
   S.t -= dt;
   S.nextThief -= dt;
-  if (S.nextThief <= 0) { spawnThief(); if (S.t < 50 && Math.random() < 0.5) spawnThief(); S.nextThief = CFG.thiefGap[0] + Math.random() * (CFG.thiefGap[1] - CFG.thiefGap[0]); }
+  if (S.nextThief <= 0) { spawnThief(); if (S.t < 15 && Math.random() < 0.5) spawnThief(); S.nextThief = CFG.thiefGap[0] + Math.random() * (CFG.thiefGap[1] - CFG.thiefGap[0]); }
   BR.forEach(b => {
     b.fuel = Math.max(0, b.fuel - b.drain * dt);
     if (b.fuel <= 0 && !b.wasEmpty) { sfx.alarm(); floatText(b.xy[0], b.xy[1] - 30, '⛽ ¡VACÍA!', '#ff6b78'); }
@@ -409,8 +409,8 @@ function end() {
   const money = Math.max(0, Math.round(S.money));
   let title, stars;
   if (money <= 0) { title = '¡Quiebra!'; stars = '💸'; }
-  else if (money >= 7000) { title = '¡Gerente estrella!'; stars = '⭐⭐⭐'; }
-  else if (money >= 4500) { title = '¡Buena gestión!'; stars = '⭐⭐'; }
+  else if (money >= 5000) { title = '¡Gerente estrella!'; stars = '⭐⭐⭐'; }
+  else if (money >= 3800) { title = '¡Buena gestión!'; stars = '⭐⭐'; }
   else { title = 'Gestión ajustada'; stars = '⭐'; }
   $('endTitle').textContent = title; $('endStars').textContent = stars; $('endMoney').textContent = fmt(money);
   $('stCaught').textContent = S.caught; $('stRobbed').textContent = S.robbed;
